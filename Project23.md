@@ -315,4 +315,156 @@ Using configMaps for persistence is not something you would consider for data st
 
 Lets illustrate this with the HTML file in-built in NGINX in the ```/usr/share/nginx/html/index.html ``` directory.
 
-[text](objects/nginx-pod.yaml)
+1. Create a depoyment for the NGINX pod. Also create a service to access the appklication.
+
+```
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-deployment
+  labels:
+    tier: frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      tier: frontend
+  template:
+    metadata:
+      labels:
+        tier: frontend
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:latest
+          ports:
+            - containerPort: 80
+```
+
+The service for the nginx
+```
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-service
+spec:
+  type: LoadBalancer
+  selector:
+    tier: frontend
+  ports:
+    - protocol: TCP
+      port: 80 # This is the port the Loadbalancer is listening at
+      targetPort: 80 # This is the port the container is listening at
+```
+
+
+
+2. Get name of the pod (kubect get pods)
+    Exec into the pod ( kubectl exec)
+
+    ```cat``` the **/usr/share/nginx/html/index.html** and copy the text and save on your local PC, will use the edited file to create a configmap.
+
+
+**Persisting configuration data with configMaps**
+
+A ConfigMap is an API object used to store non-confidential data in key-value pairs. Pods can consume ConfigMaps as environment variables, command-line arguments, or as configuration files in a volume.
+Here we will use it to create a file in a volume.
+
+The configmap will look like below 
+
+```
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: website-index-file
+data:
+  # file to be mounted inside a volume
+  index-file: |
+    <!DOCTYPE html>
+    <html>
+    <head>
+    <title>Welcome to a new day!</title>
+    <style>
+    html { color-scheme: light dark; }
+    body { width: 35em; margin: 0 auto;
+    font-family: Tahoma, Verdana, Arial, sans-serif; }
+    </style>
+    </head>
+    <body>
+    <h1>Welcome to a new day!</h1>
+    <p>If you see this page, you are Awesome!.</p>
+
+    <p>For online documentation and support please refer to
+    <a href="http://nginx.org/">nginx.org</a>.<br/>
+    Commercial support is available at
+    <a href="http://nginx.com/">nginx.com</a>.</p>
+
+    <p><em>Thank you for using nginx.</em></p>
+    </body>
+    </html>
+```
+* Apply the new manifest file.
+
+```kubectl apply -f nginx-configmap.yaml``` 
+* Update the deployment file to use the configmap in the volumeMounts section
+
+```
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-deployment
+  labels:
+    tier: frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      tier: frontend
+  template:
+    metadata:
+      labels:
+        tier: frontend
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:latest
+          ports:
+            - containerPort: 80
+          volumeMounts:
+          - name: config
+            mountPath: /usr/share/nginx/html
+            readOnly: true
+      volumes:
+      - name: config
+        configMap:
+          name: website-index-file
+          items:
+          - key: index-file
+            path: index.html
+```
+* Now the index.html file is no longer ephemeral because it is using a configMap that has been mounted onto the filesystem. This is now evident when you exec into the pod and list the /usr/share/nginx/html directory
+
+```
+  root@nginx-deployment-84b799b888-fqzwk:/# ls -ltr  /usr/share/nginx/html
+  lrwxrwxrwx 1 root root 17 Feb 19 16:16 index.html -> ..data/index.html
+```
+
+![alt text](<images/soft link.jpg>)
+
+You can now see that the index.html is now a soft link to ../data
+
+3.  In conclusion, get endpoint of the service (kubectl get svc)
+
+    Input the address in the browser and see the edited page.
+
+    ![alt text](images/index.html.jpg)
+
+You can restart the deployment
+
+```
+    kubectl rollout restart deploy nginx-deployment 
+```
+This will terminate the running pod and spin up a new one. observe the data persistence.
+
