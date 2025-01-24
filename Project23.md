@@ -466,5 +466,7 @@ You can restart the deployment
 ```
     kubectl rollout restart deploy nginx-deployment 
 ```
-This will terminate the running pod and spin up a new one. observe the data persistence.
+This will terminate the running pod and spin up a new one. Observe the data persistence.
+
+Remember to clean up your cluster after you are done to prevent cloud costs.
 
