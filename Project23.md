@@ -314,3 +314,5 @@ The PV creation could be effected with just one manifest file instead of two lik
 Using configMaps for persistence is not something you would consider for data storage. Rather it is a way to manage configuration files and ensure they are not lost as a result of Pod replacement.
 
 Lets illustrate this with the HTML file in-built in NGINX in the ```/usr/share/nginx/html/index.html ``` directory.
+
+[text](objects/nginx-pod.yaml)
